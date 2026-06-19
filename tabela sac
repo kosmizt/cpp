@@ -1,0 +1,281 @@
+#simulador de tabela sac. feito pelo claude
+"""
+Simulador de Tabela SAC (Sistema de Amortização Constante)
+"""
+
+from dataclasses import dataclass, field
+from typing import Optional
+import math
+
+
+# ─────────────────────────────── Tipos ────────────────────────────────────────
+
+@dataclass
+class AporteExtra:
+    """Define a regra de aportes adicionais."""
+    valor: float
+    modo: str           # 'todos' | 'a_partir' | 'ate_parcela' | 'ate_valor'
+    parcela_inicio: int = 1
+    parcela_fim: Optional[int] = None
+    valor_limite: Optional[float] = None   # saldo devedor alvo para parar
+
+
+@dataclass
+class Parcela:
+    numero: int
+    saldo_inicial: float
+    amortizacao: float
+    juros: float
+    prestacao: float
+    aporte_extra: float
+    saldo_final: float
+
+
+# ──────────────────────────────── Simulação ───────────────────────────────────
+
+def simular_sac(
+    valor_imovel: float,
+    entrada: float,
+    prazo_meses: int,
+    taxa_mensal: float,
+    aporte: Optional[AporteExtra] = None,
+) -> list[Parcela]:
+
+    saldo = valor_imovel - entrada
+    amort_fixa = saldo / prazo_meses
+    parcelas: list[Parcela] = []
+
+    for n in range(1, prazo_meses + 1):
+        saldo_ini = saldo
+        juros = saldo_ini * taxa_mensal
+        prestacao = amort_fixa + juros
+
+        extra = 0.0
+        if aporte:
+            extra = calcular_aporte_extra(aporte, n, saldo_ini)
+
+        saldo = max(0.0, saldo_ini - amort_fixa - extra)
+
+        parcelas.append(Parcela(
+            numero=n,
+            saldo_inicial=saldo_ini,
+            amortizacao=amort_fixa,
+            juros=juros,
+            prestacao=prestacao,
+            aporte_extra=extra,
+            saldo_final=saldo,
+        ))
+
+        if saldo <= 0:
+            break
+
+    return parcelas
+
+
+def calcular_aporte_extra(aporte: AporteExtra, n: int, saldo: float) -> float:
+    v = aporte.valor
+    match aporte.modo:
+        case "todos":
+            return v
+        case "a_partir":
+            return v if n >= aporte.parcela_inicio else 0.0
+        case "ate_parcela":
+            return v if aporte.parcela_inicio <= n <= aporte.parcela_fim else 0.0
+        case "ate_valor":
+            return v if saldo > aporte.valor_limite else 0.0
+        case _:
+            return 0.0
+
+
+# ──────────────────────────── Input helpers ───────────────────────────────────
+
+def pedir_float(prompt: str, minimo: float = 0.0) -> float:
+    while True:
+        try:
+            v = float(input(prompt).replace(",", "."))
+            if v < minimo:
+                print(f"  ✗ Valor deve ser ≥ {minimo}")
+                continue
+            return v
+        except ValueError:
+            print("  ✗ Digite um número válido.")
+
+
+def pedir_int(prompt: str, minimo: int = 1) -> int:
+    while True:
+        try:
+            v = int(input(prompt))
+            if v < minimo:
+                print(f"  ✗ Valor deve ser ≥ {minimo}")
+                continue
+            return v
+        except ValueError:
+            print("  ✗ Digite um número inteiro válido.")
+
+
+def pedir_sim_nao(prompt: str) -> bool:
+    while True:
+        r = input(prompt).strip().lower()
+        if r in ("s", "sim", "y", "yes"):
+            return True
+        if r in ("n", "nao", "não", "no"):
+            return False
+        print("  ✗ Responda s ou n.")
+
+
+def coletar_dados() -> tuple:
+    sep = "─" * 50
+
+    print(f"\n{'═'*50}")
+    print("  SIMULADOR SAC — Sistema de Amortização Constante")
+    print(f"{'═'*50}\n")
+
+    # ── Imóvel ──────────────────────────────────────────
+    print(sep)
+    print("  IMÓVEL")
+    print(sep)
+    valor_imovel = pedir_float("  Valor do imóvel (R$): ", 1.0)
+    entrada      = pedir_float(f"  Valor da entrada (R$, máx {valor_imovel:,.2f}): ", 0.0)
+    while entrada >= valor_imovel:
+        print("  ✗ Entrada deve ser menor que o valor do imóvel.")
+        entrada = pedir_float(f"  Valor da entrada (R$): ", 0.0)
+
+    # ── Financiamento ────────────────────────────────────
+    print(f"\n{sep}")
+    print("  FINANCIAMENTO")
+    print(sep)
+    prazo = pedir_int("  Prazo (meses): ", 1)
+
+    print("  Taxa de juros — informe anual ou mensal?")
+    print("    1 · Anual (%a.a.)")
+    print("    2 · Mensal (%a.m.)")
+    while True:
+        op = input("  Opção: ").strip()
+        if op == "1":
+            taxa_anual  = pedir_float("  Taxa anual (%): ", 0.01)
+            taxa_mensal = (1 + taxa_anual / 100) ** (1 / 12) - 1
+            print(f"  → Taxa mensal equivalente: {taxa_mensal*100:.4f}%")
+            break
+        elif op == "2":
+            taxa_mensal = pedir_float("  Taxa mensal (%): ", 0.01) / 100
+            break
+        else:
+            print("  ✗ Opção inválida.")
+
+    # ── Aportes extras ───────────────────────────────────
+    print(f"\n{sep}")
+    print("  APORTES EXTRAS")
+    print(sep)
+    aporte: Optional[AporteExtra] = None
+
+    if pedir_sim_nao("  Haverá aportes extras? (s/n): "):
+        valor_extra = pedir_float("  Valor do aporte extra por parcela (R$): ", 0.01)
+
+        print()
+        print("  Quando aplicar o aporte?")
+        print("    1 · Todas as parcelas")
+        print("    2 · A partir de uma parcela")
+        print("    3 · Entre parcelas X e Y")
+        print("    4 · Enquanto saldo devedor > valor definido")
+
+        while True:
+            modo_op = input("  Opção: ").strip()
+            if modo_op == "1":
+                aporte = AporteExtra(valor=valor_extra, modo="todos")
+                break
+            elif modo_op == "2":
+                ini = pedir_int("  A partir da parcela número: ", 1)
+                aporte = AporteExtra(valor=valor_extra, modo="a_partir", parcela_inicio=ini)
+                break
+            elif modo_op == "3":
+                ini = pedir_int("  Da parcela número: ", 1)
+                fim = pedir_int(f"  Até a parcela número (≥ {ini}): ", ini)
+                aporte = AporteExtra(valor=valor_extra, modo="ate_parcela",
+                                     parcela_inicio=ini, parcela_fim=fim)
+                break
+            elif modo_op == "4":
+                lim = pedir_float("  Aplicar enquanto saldo > R$: ", 0.0)
+                aporte = AporteExtra(valor=valor_extra, modo="ate_valor", valor_limite=lim)
+                break
+            else:
+                print("  ✗ Opção inválida.")
+
+    return valor_imovel, entrada, prazo, taxa_mensal, aporte
+
+
+# ────────────────────────────── Relatório ─────────────────────────────────────
+
+def imprimir_tabela(parcelas: list[Parcela], valor_imovel: float,
+                    entrada: float, taxa_mensal: float) -> None:
+
+    financiado  = valor_imovel - entrada
+    total_juros = sum(p.juros for p in parcelas)
+    total_extra = sum(p.aporte_extra for p in parcelas)
+    total_pago  = sum(p.prestacao for p in parcelas) + total_extra + entrada
+    prazo_real  = len(parcelas)
+
+    print(f"\n{'═'*100}")
+    print("  TABELA SAC")
+    print(f"{'═'*100}")
+    print(f"  Imóvel: R$ {valor_imovel:>14,.2f}   Entrada: R$ {entrada:>14,.2f}   "
+          f"Financiado: R$ {financiado:>14,.2f}   Taxa: {taxa_mensal*100:.4f}% a.m.")
+    print(f"{'─'*100}")
+    print(f"  {'#':>4}  {'Saldo Inicial':>16}  {'Amortização':>14}  {'Juros':>14}  "
+          f"{'Prestação':>14}  {'Aporte Extra':>14}  {'Saldo Final':>14}")
+    print(f"{'─'*100}")
+
+    for p in parcelas:
+        extra_str = f"R$ {p.aporte_extra:>10,.2f}" if p.aporte_extra else "          —  "
+        print(
+            f"  {p.numero:>4}  "
+            f"R$ {p.saldo_inicial:>13,.2f}  "
+            f"R$ {p.amortizacao:>11,.2f}  "
+            f"R$ {p.juros:>11,.2f}  "
+            f"R$ {p.prestacao:>11,.2f}  "
+            f"  {extra_str}  "
+            f"R$ {p.saldo_final:>11,.2f}"
+        )
+
+    print(f"{'─'*100}")
+    print(f"\n  RESUMO")
+    print(f"  Prazo original / real        : {prazo_real} parcelas")
+    print(f"  Primeira prestação           : R$ {parcelas[0].prestacao:>14,.2f}")
+    print(f"  Última prestação             : R$ {parcelas[-1].prestacao:>14,.2f}")
+    print(f"  Total de juros pagos         : R$ {total_juros:>14,.2f}")
+    if total_extra:
+        print(f"  Total de aportes extras      : R$ {total_extra:>14,.2f}")
+    print(f"  Total pago (c/ entrada)      : R$ {total_pago:>14,.2f}")
+    print(f"  Custo efetivo s/ imóvel      : {(total_pago/valor_imovel - 1)*100:.1f}%")
+    print(f"{'═'*100}\n")
+
+
+def exportar_csv(parcelas: list[Parcela], caminho: str = "tabela_sac.csv") -> None:
+    import csv
+    with open(caminho, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["Parcela", "Saldo Inicial", "Amortizacao",
+                    "Juros", "Prestacao", "Aporte Extra", "Saldo Final"])
+        for p in parcelas:
+            w.writerow([p.numero, f"{p.saldo_inicial:.2f}", f"{p.amortizacao:.2f}",
+                        f"{p.juros:.2f}", f"{p.prestacao:.2f}",
+                        f"{p.aporte_extra:.2f}", f"{p.saldo_final:.2f}"])
+    print(f"  ✓ CSV exportado → {caminho}\n")
+
+
+# ────────────────────────────────── Main ──────────────────────────────────────
+
+def main() -> None:
+    try:
+        valor_imovel, entrada, prazo, taxa_mensal, aporte = coletar_dados()
+        parcelas = simular_sac(valor_imovel, entrada, prazo, taxa_mensal, aporte)
+        imprimir_tabela(parcelas, valor_imovel, entrada, taxa_mensal)
+
+        if pedir_sim_nao("  Exportar para CSV? (s/n): "):
+            exportar_csv(parcelas)
+
+    except KeyboardInterrupt:
+        print("\n\n  Simulação cancelada.\n")
+
+
+if __name__ == "__main__":
+    main()
