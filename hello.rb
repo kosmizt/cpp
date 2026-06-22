@@ -25,3 +25,28 @@ text.gsub!("England", "France")
 #puts text.gsub("England", "Italy")
 
 #3.2
+
+
+#hanoi tower
+def hanoi(n, src, dst, aux)
+  if n == 1
+    puts "Move disk 1 from #{src} to #{dst}"
+    return
+  end
+  hanoi(n - 1, src, aux, dst)
+  puts "Move disk #{n} from #{src} to #{dst}"
+  hanoi(n - 1, aux, dst, src)
+end
+
+#with move counting
+def hanoi(n, src, dst, aux, count = 0)
+  if n == 1
+    puts "Move disk 1 from #{src} to #{dst}"
+    return count + 1
+  end
+  count = hanoi(n - 1, src, aux, dst)
+  puts "Move disk #{n} from #{src} to #{dst}"
+  hanoi(n - 1, aux, dst, src, count + 1)
+end
+
+puts "Total moves: #{hanoi(3)}"
