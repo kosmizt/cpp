@@ -39,16 +39,14 @@ def hanoi(n, src, dst, aux)
 end
 
 #with move counting
-def hanoi(n, src, dst, aux, count = 0)
-  if n == 1
-    puts "Move disk 1 from #{src} to #{dst}"
-    return count + 1
-  end
+def hanoi(n, src, dst, aux)
+  return 0 if n == 0
   count = hanoi(n - 1, src, aux, dst)
   puts "Move disk #{n} from #{src} to #{dst}"
-  hanoi(n - 1, aux, dst, src, count + 1)
+  count + 1 + hanoi(n - 1, aux, dst, src)
 end
 
-puts "Total moves: #{hanoi(3)}"
+puts "Total moves: #{hanoi(3,  'A', 'C', 'B')}"
 
+#one liner move counting
 def hanoi(n, s, d, a, m = 0) = n == 0 ? m : hanoi(n-1, a, d, s, hanoi(n-1, s, a, d, m) + (puts "Disk #{n}: #{s}->#{d}"; 1))
