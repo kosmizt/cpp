@@ -50,3 +50,5 @@ def hanoi(n, src, dst, aux, count = 0)
 end
 
 puts "Total moves: #{hanoi(3)}"
+
+def hanoi(n, s, d, a, m = 0) = n == 0 ? m : hanoi(n-1, a, d, s, hanoi(n-1, s, a, d, m) + (puts "Disk #{n}: #{s}->#{d}"; 1))
