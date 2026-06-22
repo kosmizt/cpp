@@ -1,13 +1,13 @@
 !equivalent .py code:
 ! def hanoi(n, src, dst, aux):
-! if n == 1:
-!        print(f"Move disk 1 from {src} to {dst}")
-!        return
-!    hanoi(n - 1, src, aux, dst)
-!    print(f"Move disk {n} from {src} to {dst}")
-!    hanoi(n - 1, aux, dst, src)
+! if n == 0:
+!       return 0
+! count = hanoi(n - 1, src, aux, dst)
+! print(f"Move disk {n} from {src} to {dst}")
+! return count + 1 + hanoi(n - 1, aux, dst, src)
 !
-!hanoi(3, 'A', 'C', 'B')
+!print (f"Total moves: {hanoi(3, 'A', 'C', 'B')}")
+
 
 program hanoi_tower
     implicit none
@@ -39,5 +39,29 @@ contains
 
 !    program main
 !        call hanoi(3, 'A', 'C', 'B')
+
+! counting moves
+program hanoi_tower
+    implicit none
     
+    print *, "Total moves:", hanoi(3, 'A', 'C', 'B')
+    
+contains
+
+    recursive integer function hanoi(n, src, dst, aux) result(moves)
+        implicit none
+        integer, intent(in) :: n
+        character(len=1), intent(in) :: src, dst, aux
+        
+        if (n == 0) then
+            moves = 0
+            return
+        end if
+        
+        moves = hanoi(n-1, src, aux, dst)
+        print *, "Move disk", n, " from ", src, " to ", dst
+        moves = moves + 1 + hanoi(n-1, aux, dst, src)
+    end function hanoi
+    
+end program hanoi_tower
 end program hanoi_tower
