@@ -6,7 +6,9 @@
 ! print(f"Move disk {n} from {src} to {dst}")
 ! return count + 1 + hanoi(n - 1, aux, dst, src)
 !
-!print (f"Total moves: {hanoi(3, 'A', 'C', 'B')}")
+!print(f"Total moves: {hanoi(n, 'A', 'C', 'B')}")
+!total_moves = (2 ** n)-1
+!print(f"Total moves required: {total_moves}")
 
 
 program hanoi_tower
@@ -38,13 +40,13 @@ contains
     end subroutine hanoi
 
 !    program main
-!        call hanoi(3, 'A', 'C', 'B')
+!        call hanoi(n_disks, 'A', 'C', 'B')
 
 ! counting moves
 program hanoi_tower
     implicit none
     
-    print *, "Total moves:", hanoi(3, 'A', 'C', 'B')
+    print *, "Total moves:", hanoi(n_disks, 'A', 'C', 'B')
     
 contains
 
